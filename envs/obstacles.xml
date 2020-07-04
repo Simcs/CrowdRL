@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<env>
+    <agent>
+        <x>100</x>
+        <y>-100</y>
+        <x1>-100</x1>
+        <y1>0</y1>
+        <radius>4</radius>
+    </agent>
+
+    <obstacle>
+        <x>20</x>
+        <y>20</y>
+        <radius>3</radius>
+    </obstacle>
+    <obstacle>
+        <x>20</x>
+        <y>-10</y>
+        <radius>7</radius>
+    </obstacle>
+    <obstacle>
+        <x>0</x>
+        <y>-80</y>
+        <radius>20</radius>
+    </obstacle>
+    <obstacle>
+        <x>10</x>
+        <y>20</y>
+        <radius>10</radius>
+    </obstacle>
+    
+    
+    
+
+</env>
