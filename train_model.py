@@ -1,4 +1,5 @@
 import numpy as np
+import argparse
 import time
 import sys
 import os
@@ -24,7 +25,7 @@ ppo_steps = 1024
 mini_batch_size = 64
 ppo_epochs = 10
 
-test_epochs = 10
+test_epochs = 5
 num_tests = 1
 target_reward = -50
 
@@ -85,13 +86,19 @@ def ppo_update(frame_idx, states, actions, log_probs, returns, advantages, clip_
             optimizer.step()
         
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-e", "--env", default="basic", help="Environment name to use")
+    parser.add_argument("-p", "--path", default="./checkpoints", help="Path to save model")
+    args = parser.parse_args()
+
     start = time.time()
 
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    env = make_env("basic")
-    test = make_env("basic")
+    env = make_env(args.env)
+    test = make_env(args.env)
     num_inputs = env.num_observation
     num_outputs = env.num_action
 
@@ -161,11 +168,14 @@ if __name__ == "__main__":
             test_reward = np.mean([test_env(test, model) for _ in range(num_tests)]) / ppo_steps
             print(f'Frame {frame_idx}. avg reward: {test_reward}')
             print(f'elapsed time: {time.time() - start:.2f}')
-            if best_reward == None or best_reward < test_reward:
-                best_reward = test_reward
-                if best_reward > target_reward:
-                    name = f'iteration-{i},avg_reward-{test_reward:.3f}.dat'
-                    fname = os.path.join('.', 'checkpoints', name)
-                    torch.save(model.state_dict(), fname)
+            name = f'iteration-{i},avg_reward-{test_reward:.3f}.dat'
+            fname = os.path.join(args.path, name)
+            torch.save(model.state_dict(), fname)
+            # if best_reward == None or best_reward < test_reward:
+            #     best_reward = test_reward
+            #     if best_reward > target_reward:
+            #         name = f'iteration-{i},avg_reward-{test_reward:.3f}.dat'
+            #         fname = os.path.join('.', 'checkpoints', name)
+            #         torch.save(model.state_dict(), fname)
 
 
