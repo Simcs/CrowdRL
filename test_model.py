@@ -1,4 +1,5 @@
 import sys
+import time
 import argparse
 import numpy as np
 import torch
@@ -198,6 +199,19 @@ def getWorldCoordinate(x, y):
     z = glReadPixels(winX, winY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT)
     return gluUnProject(winX, winY, z, modelView, projection, viewport)
 
+def step(env, model, state):
+    global avg_step_time, total_steps
+    state = torch.FloatTensor(state)
+    dist, _ = model(state)
+    action = dist.sample().numpy()
+    start = time.perf_counter()
+
+    next_state, reward, _ = env.step(action)
+    elapsed = time.perf_counter() - start
+    avg_step_time += (elapsed - avg_step_time) / total_steps
+    print(f'avg step elapsed: {avg_step_time:.5f}', end='\r')
+    return next_state, reward
+
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
@@ -212,11 +226,13 @@ if __name__ == "__main__":
     num_inputs = env.num_observation
     num_outputs = env.num_action
     model = ActorCritic(num_inputs, num_outputs, hidden_size)
-    model.load_state_dict(torch.load(args.model))
+    model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
 
     state = env.reset()
     total_reward = 0
-    total_steps = 0
+    total_steps = 1
+
+    avg_step_time = 0.0
 
     if args.render == "False" or args.render == "false" or args.render == "f":
         args.render = False
@@ -234,29 +250,21 @@ if __name__ == "__main__":
         sim.initialize()
 
         while not glfw.window_should_close(sim.window):
-            state = torch.FloatTensor(state)
-            dist, _ = model(state)
-            print('dist:', dist.mean, dist.stddev)
-            action = dist.sample().numpy()
-            next_state, reward, done = env.step(action)
-            print('action:', action)
+            next_state, reward = step(env, model, state)
             state = next_state
             total_reward += reward
             total_steps += 1
-
+            
             glfw.poll_events()
             sim.display()
             glfw.swap_buffers(sim.window)
     else:
         iter = 1000
         for i in range(1000):
-            state = torch.FloatTensor(state)
-            dist, _ = model(state)
-            action = dist.sample().numpy()
-            next_state, reward, done = env.step(action)
-            print('action:', action)
+            next_state, reward = step(env, model, state)
             state = next_state
             total_reward += reward
             total_steps += 1
+
 
     print(f'total steps: {total_steps}, total reward: {total_reward}')

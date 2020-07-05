@@ -8,12 +8,12 @@ from util import *
 
 def make_env(name):
     if name == "basic":
-        return BasicEnv('./envs/basic_env.xml')
+        return Environment('./envs/basic_env.xml')
     if name == "obstacles":
-        return BasicEnv('./envs/obstacles.xml')
+        return Environment('./envs/obstacles.xml')
     return None
 
-class BasicEnv():
+class Environment():
 
     def __init__(self, env_fname):
         self.tree = parse(env_fname) 
@@ -22,16 +22,17 @@ class BasicEnv():
         self.dt = 1e-1 # timestep
 
         self.v_min = 0.0 # desired minimum velocity
-        self.v_max = 2.0 # desired maximum velocity
+        self.v_max = 1.5 # desired maximum velocity
         self.t_max = 40 # maximum sight of agent
 
-        self.w_min = 0.0
-        self.w_max = np.pi / 4
+        self.w_min = 0.0 # desired minimum angular delta
+        self.w_max = np.pi / 4 # desired maximum angular delta
         
-        self.w1 = 4.0 # weight for distance reward
-        self.w2 = 3.0 # weight for collision reward
-        self.w3 = 2.0 # weight for velocity flood reward
-        self.w4 = 1.0 # weight for theta flood reward
+        self.w1 = 4.0 # distance reward weight
+        self.w2 = 3.0 # collision reward weight
+        self.w3 = 2.0 # velocity flood reward weight
+        self.w4 = 1.0 # theta flood reward weight
+
         self.n = 20 # number of rays
 
         self.reset()
@@ -56,35 +57,53 @@ class BasicEnv():
             y = float(obstacle.findtext('y'))
             r = float(obstacle.findtext('radius'))
             self.obstacles.append(Obstacle(x, y, r))
+            
         self.frame = 0
-        return np.concatenate((self.internalStates(), self.externalStates()), axis=1)
+
+        return self.computeStates()
 
     # action : [len(agents), 2] force
     def step(self, action):
-        p_t = np.array([agent.pos for agent in self.agents])
-        v_t = np.array([agent.vel for agent in self.agents])
-        thetas = np.array([agent.theta for agent in self.agents])
-        targets = np.array([agent.target for agent in self.agents])
-
-        p_t1 = p_t + self.dt * v_t
-        for i in range(len(self.agents)):
-            self.agents[i].vel = self.agents[i].vel + self.dt * (self.agents[i].ori @ action[i].reshape(2, 1)).reshape(2)
-
-        for i in range(len(self.agents)):
-            self.agents[i].pos = p_t1[i]
-            self.agents[i].computeOrientation()
-
-        new_thetas = np.array([agent.theta for agent in self.agents])
+        p_t = np.array([agent.pos for agent in self.agents]) # positions
+        v_t = np.array([agent.vel for agent in self.agents]) # velocities
+        w_t = np.array([agent.theta for agent in self.agents]) # thetas
+        o_t = np.array([agent.ori for agent in self.agents]) # orientations
         
+        action = action.reshape(len(self.agents), 2, 1)
+        p_t1, v_t1, w_t1 = self.updateStates(p_t, v_t, o_t, action)
+        
+        targets = np.array([agent.target for agent in self.agents])
         dist = np.linalg.norm(targets - p_t1, axis=1)
 
-        state_int, state_ext = self.internalStates(), self.externalStates()
-        rewards = self.computeRewards(p_t, p_t1, thetas, new_thetas)
+        states = self.computeStates()
+        rewards = self.computeRewards(p_t, p_t1, w_t, w_t1)
         dones = dist < self.eps
 
         self.frame += 1
 
-        return np.concatenate((state_int, state_ext), axis=1), rewards, dones
+        return states, rewards, dones
+    
+    def updateStates(self, pos, vel, ori, force):
+        # update positions, velocities
+        n = len(self.agents)
+        new_pos = pos + self.dt * vel
+        new_vel = vel + self.dt * (ori @ force).reshape(n, 2)
+
+        # update orientations
+        def rotationMatrix(c, s):
+            return np.array([[c, -s], [s, c]])
+
+        new_theta = np.arctan2(new_vel[:, 1], new_vel[:, 0])
+        cos = np.cos(new_theta)
+        sin = np.sin(new_theta)
+
+        for i in range(len(self.agents)):
+            self.agents[i].pos = new_pos[i]
+            self.agents[i].vel = new_vel[i]
+            self.agents[i].theta = new_theta[i]
+            self.agents[i].ori = rotationMatrix(cos[i], sin[i])
+        
+        return new_pos, new_vel, new_theta
 
     def computeRewards(self, pos, new_pos, theta, new_theta):
         targets = np.array([agent.target for agent in self.agents])
@@ -144,6 +163,11 @@ class BasicEnv():
         
         return self.w1 * distance_reward + self.w2 * collision_reward + self.w3 * velocity_reward + self.w4 * orientation_reward
 
+    def computeStates(self):
+        state_int = self.internalStates()
+        state_ext = self.externalStates()
+        return np.concatenate((state_int, state_ext), axis=1)
+
     # states : array of [pos, vel] -> [len(agents), 4]
     def internalStates(self):
         state_int = []
@@ -200,19 +224,21 @@ class Agent():
         self.target = np.array([x1, y1]).astype(np.float64)
         self.r = r
 
-        self.f = np.zeros(2).astype(np.float64)
-
         direction = self.target - self.pos
         self.theta = math.atan2(direction[1], direction[0])
         cos = math.cos(self.theta)
         sin = math.sin(self.theta)
         self.ori = np.array([[cos, -sin], [sin, cos]])
+
+        self.vecComputeOrientation = np.vectorize(self.computeOrientation)
     
     def computeOrientation(self):
         self.theta = math.atan2(self.vel[1], self.vel[0])
         cos = math.cos(self.theta)
         sin = math.sin(self.theta)
         self.ori = np.array([[cos, -sin], [sin, cos]])
+    
+
 
     def to_numpy(self):
         return np.array([self.pos, self.vel])

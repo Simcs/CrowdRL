@@ -26,14 +26,19 @@ print(distance(arr1, arr2))
 math_sqrt = timeit.timeit(lambda: distance(arr1, arr2), number=n)
 print('math sqrt:', math_sqrt)
 
+def rotationMatrix(cos, sin):
+    return np.array([[cos, -sin], [sin, cos]])
 
-arr = np.array([[1, 2, 3],
-        [4, 5, 6],
-        [2, 3, 4]])
-arr1 = np.array([1, 2, 3]).reshape(3, 1)
-print(arr - arr1)
+vecRotationMatrix = np.vectorize(rotationMatrix)
 
-arr = np.array([[1, 2], [1.2, 3.2], [1.4, 3.4]])
-v_min = 0.5
-print(arr - v_min)
-print(np.linalg.norm(arr - v_min, axis=1))
+a = np.random.rand(4, 2).astype(np.float64)
+print(a)
+print(a[:, 0])
+print(a[:, 1])
+
+thetas = np.arctan2(a[:, 1], a[:, 0])
+print('theta:', thetas)
+cos = np.cos(thetas)
+sin = np.sin(thetas)
+matricies = vecRotationMatrix(cos, sin)
+print(matricies)

@@ -62,9 +62,9 @@
         <x1>-100</x1>
         <y1>-100</y1>
         <radius>4</radius>
-    </agent> -->
+    </agent>
 
-    <!-- <obstacle>
+    <obstacle>
         <x>20</x>
         <y>20</y>
         <radius>3</radius>
