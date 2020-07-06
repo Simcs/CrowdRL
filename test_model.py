@@ -201,15 +201,16 @@ def getWorldCoordinate(x, y):
 
 def step(env, model, state):
     global avg_step_time, total_steps
+    
     state = torch.FloatTensor(state)
     dist, _ = model(state)
     action = dist.sample().numpy()
-    start = time.perf_counter()
 
+    start = time.perf_counter()
     next_state, reward, _ = env.step(action)
     elapsed = time.perf_counter() - start
-    avg_step_time += (elapsed - avg_step_time) / total_steps
-    print(f'avg step elapsed: {avg_step_time:.5f}', end='\r')
+    avg_step_time = avg_step_time + (elapsed - avg_step_time) / total_steps
+    print(f'avg step elapsed: {avg_step_time:.5f}')
     return next_state, reward
 
 if __name__ == "__main__":
