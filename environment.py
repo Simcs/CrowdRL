@@ -71,7 +71,6 @@ class Environment():
         self.o_t = np.array([agent.ori for agent in self.agents]) # orientations
         self.targets = np.array([agent.target for agent in self.agents])
         self.obs_pos = np.array([obstacle.pos for obstacle in self.obstacles])
-        print(self.obs_pos.shape)
         self.p_t1 = self.v_t1 = self.w_t1 = self.o_t1 = None
 
         self.frame = 1
@@ -81,50 +80,39 @@ class Environment():
     # action : [len(agents), 2] force
     def step(self, action):
         # 1. apply forces
-        start = time.perf_counter()
+        # start = time.perf_counter()
         force = action.reshape(len(self.agents), 2, 1)
         self.updateStates(force)
-        elapsed = time.perf_counter() - start
-        self.avg_times[0] += (elapsed - self.avg_times[0]) / self.frame
+        # elapsed = time.perf_counter() - start
+        # self.avg_times[0] += (elapsed - self.avg_times[0]) / self.frame
 
         # 2. compute rewards
-        start = time.perf_counter()
+        # start = time.perf_counter()
         rewards = self.computeRewards()
-        elapsed = time.perf_counter() - start
-        self.avg_times[1] += (elapsed - self.avg_times[1]) / self.frame
+        # elapsed = time.perf_counter() - start
+        # self.avg_times[1] += (elapsed - self.avg_times[1]) / self.frame
 
-        start = time.perf_counter()
         self.p_t = self.p_t1
         self.v_t = self.v_t1
         self.w_t = self.w_t1
         self.o_t = self.o_t1
-        elapsed = time.perf_counter() - start
-        self.avg_times[2] += (elapsed - self.avg_times[2]) / self.frame
 
         # 3. compute states
-        start = time.perf_counter()
+        # start = time.perf_counter()
         states = self.computeStates()
-        elapsed = time.perf_counter() - start
-        self.avg_times[3] += (elapsed - self.avg_times[3]) / self.frame
+        # elapsed = time.perf_counter() - start
+        # self.avg_times[2] += (elapsed - self.avg_times[2]) / self.frame
 
-        # targets = np.array([agent.target for agent in self.agents])
         dist = np.linalg.norm(self.targets - self.p_t1, axis=1)
         dones = dist < self.eps
 
         self.frame += 1
         
-        # print('merge:', self.avg_times[0])
-        # print('update:', self.avg_times[1])
-        # start = time.perf_counter()
-        # print('update1:', self.avg_times[0])
+        # print('update:', self.avg_times[0])
         # print('compute reward:', self.avg_times[1])
-        # print('update2:', self.avg_times[2])
-        # print('compute state:', self.avg_times[3])
+        # print('compute state:', self.avg_times[2])
         # print('internal state:', self.avg_times[4])
-        print('external state:', self.avg_times[5])
-        # elapsed = time.perf_counter() - start
-        # self.avg_times[6] += (elapsed - self.avg_times[6]) / self.frame
-        # print('print:', self.avg_times[6])
+        # print('external state:', self.avg_times[5])
 
         return states, rewards, dones
     
@@ -228,15 +216,15 @@ class Environment():
         return self.w1 * distance_reward + self.w2 * collision_reward + self.w3 * velocity_reward + self.w4 * orientation_reward
 
     def computeStates(self):
-        start = time.perf_counter()
+        # start = time.perf_counter()
         state_int = self.internalStates()
-        elapsed = time.perf_counter() - start
-        self.avg_times[4] += (elapsed - self.avg_times[4]) / self.frame
+        # elapsed = time.perf_counter() - start
+        # self.avg_times[4] += (elapsed - self.avg_times[4]) / self.frame
 
-        start = time.perf_counter()
+        # start = time.perf_counter()
         state_ext = self.externalStates()
-        elapsed = time.perf_counter() - start
-        self.avg_times[5] += (elapsed - self.avg_times[5]) / self.frame
+        # elapsed = time.perf_counter() - start
+        # self.avg_times[5] += (elapsed - self.avg_times[5]) / self.frame
         
         return np.concatenate((state_int, state_ext), axis=1)
 
@@ -259,7 +247,7 @@ class Environment():
         d[:,:,1] = np.sin(thetas)
 
         objs = np.concatenate((self.agents, self.obstacles))
-        r = np.array([obj.r for obj in objs])
+        # r = np.array([obj.r for obj in objs])
         if len(self.obstacles) > 0:
             obj_pos = np.concatenate((self.p_t, self.obs_pos), axis=0)
         else:
@@ -360,18 +348,3 @@ if __name__ == "__main__":
     state_int = env.internalStates()
     state_ext = env.externalStates()
     state = np.concatenate((state_int, state_ext), axis=1)
-    
-    from model import ActorCritic
-
-    for i in range(10):
-        action = np.array([[1., 1.], [1., 1.], [1., 1.]])
-        print('action:', action)
-        state, reward, done, = env.step(action)
-
-        print('state:', state)
-
-    # print('state_int:', state_int.shape)
-    # print(state_int)
-    # print('state_ext:', state_ext.shape)
-    # print('state:', state.shape)
-    # print(state)

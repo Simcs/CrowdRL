@@ -25,9 +25,10 @@ ppo_steps = 1024
 mini_batch_size = 64
 ppo_epochs = 10
 
-test_epochs = 5
-num_tests = 1
-target_reward = -50
+test_epochs = 10
+log_epochs = 100
+num_tests = 3
+target_reward = -10
 
 def normalize(x):
     x -= x.mean()
@@ -148,7 +149,7 @@ if __name__ == "__main__":
         _, next_value = model(next_state)
         returns = compute_gae(next_value, rewards, masks, values)
 
-        print('last state:\n', state)
+        # print('last state:\n', state)
         print('last reward:\n', reward)
 
         returns = torch.cat(returns).detach()
@@ -160,22 +161,22 @@ if __name__ == "__main__":
         advantages = normalize(advantages)
 
         print('update...')
+        start = time.perf_counter()
         ppo_update(frame_idx, states, actions, log_probs, returns, advantages)
-        print('update finished')
+        print(f'update finished, elasped: {time.perf_counter() - start:.5f}')
         train_epoch += 1
 
         if train_epoch % test_epochs == 0:
-            test_reward = np.mean([test_env(test, model) for _ in range(num_tests)]) / ppo_steps
+            test_reward = np.mean([test_env(test, model) for _ in range(num_tests)])
             print(f'Frame {frame_idx}. avg reward: {test_reward}')
             print(f'elapsed time: {time.time() - start:.2f}')
+
             name = f'iteration-{i},avg_reward-{test_reward:.3f}.dat'
             fname = os.path.join(args.path, name)
-            torch.save(model.state_dict(), fname)
-            # if best_reward == None or best_reward < test_reward:
-            #     best_reward = test_reward
-            #     if best_reward > target_reward:
-            #         name = f'iteration-{i},avg_reward-{test_reward:.3f}.dat'
-            #         fname = os.path.join('.', 'checkpoints', name)
-            #         torch.save(model.state_dict(), fname)
 
+            if best_reward == None or best_reward < test_reward:
+                best_reward = test_reward
+                torch.save(model.state_dict(), fname)
+            if train_epoch % log_epochs == 0:
+                torch.save(model.state_dict(), fname)
 
