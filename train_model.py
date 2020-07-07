@@ -126,6 +126,7 @@ if __name__ == "__main__":
         rewards = []
         masks = []
 
+        start = time.perf_counter()
         for _ in range(ppo_steps):
             state = torch.FloatTensor(state).to(device)
             dist, value = model(state)
@@ -145,12 +146,13 @@ if __name__ == "__main__":
             state = next_state
             frame_idx += 1
 
+        # print('last state:\n', state)
+        print('last reward:\n', reward)
+        print('step elapsed:', time.perf_counter() - start)
+
         next_state = torch.FloatTensor(next_state).to(device)
         _, next_value = model(next_state)
         returns = compute_gae(next_value, rewards, masks, values)
-
-        # print('last state:\n', state)
-        print('last reward:\n', reward)
 
         returns = torch.cat(returns).detach()
         log_probs = torch.cat(log_probs).detach()
