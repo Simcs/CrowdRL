@@ -21,7 +21,7 @@ ppo_eps = 0.2 # clip ratio
 critic_discount = 0.5 # critic loss coefficient
 entropy_beta = 1e-3 # entropy loss coefficient
 
-ppo_steps = 1024
+ppo_steps = 2048
 mini_batch_size = 64
 ppo_epochs = 10
 
@@ -104,7 +104,7 @@ if __name__ == "__main__":
     num_outputs = env.num_action
 
     model = ActorCritic(num_inputs, num_outputs).to(device)
-    # model.load_state_dict(torch.load('./checkpoints/reward--0.516.dat'))
+    model.load_state_dict(torch.load('./checkpoints/iteration-1599,avg_reward--36.186.dat', map_location=torch.device('cpu')))
     print(model)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
