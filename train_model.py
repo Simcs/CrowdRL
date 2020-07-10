@@ -19,7 +19,7 @@ gae_lambda = 0.95 # used in GAE evaluation
 
 ppo_eps = 0.2 # clip ratio
 critic_discount = 0.5 # critic loss coefficient
-entropy_beta = 1e-3 # entropy loss coefficient
+entropy_beta = 0.0 # 1e-3 # entropy loss coefficient
 
 ppo_steps = 2048
 mini_batch_size = 64
@@ -91,6 +91,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-e", "--env", default="basic", help="Environment name to use")
     parser.add_argument("-p", "--path", default="./checkpoints", help="Path to save model")
+    parser.add_argument("-m", "--model", default=None, help="Model to load")
     args = parser.parse_args()
 
     start = time.time()
@@ -104,7 +105,8 @@ if __name__ == "__main__":
     num_outputs = env.num_action
 
     model = ActorCritic(num_inputs, num_outputs).to(device)
-    model.load_state_dict(torch.load('./checkpoints/iteration-1599,avg_reward--36.186.dat', map_location=torch.device('cpu')))
+    if args.model is not None:
+        model.load_state_dict(torch.load(args.model, map_location=device))
     print(model)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -112,7 +114,7 @@ if __name__ == "__main__":
     train_epoch = 0
     best_reward = None
 
-    iter = 2000
+    iter = 10000
     # state = env.reset()
 
     for i in range(iter):
