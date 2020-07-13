@@ -41,8 +41,10 @@ def test_env(env, model):
     with torch.no_grad():
         model.eval()
         for i in range(ppo_steps):
-            state = torch.FloatTensor(state).to(device)
-            dist, _ = model(state)
+            int_state = torch.FloatTensor(state[0]).to(device)
+            ext_state = torch.FloatTensor(state[1]).unsqueeze(1).to(device)
+            # state = torch.FloatTensor(state).to(device)
+            dist, _ = model(int_state, ext_state)
             action = dist.sample().cpu().numpy()
             next_state, reward, _ = env.step(action)
             state = next_state
