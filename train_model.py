@@ -59,17 +59,17 @@ def compute_gae(next_value, rewards, masks, values, gamma=gamma, lam=gae_lambda)
         returns.insert(0, gae + values[step])
     return returns
 
-def ppo_iter(states, actions, log_probs, returns, advantages):
-    batch_size = states.size(0)
+def ppo_iter(int_states, ext_states, actions, log_probs, returns, advantages):
+    batch_size = int_states.size(0)
     for _ in range(batch_size // mini_batch_size):
         rand_ids = np.random.randint(0, batch_size, mini_batch_size)
-        yield states[rand_ids, :], actions[rand_ids, :], log_probs[rand_ids, :], returns[rand_ids, :], advantages[rand_ids, :]
+        yield int_states[rand_ids, :], ext_states[rand_ids, :], actions[rand_ids, :], log_probs[rand_ids, :], returns[rand_ids, :], advantages[rand_ids, :]
 
-def ppo_update(frame_idx, states, actions, log_probs, returns, advantages, clip_param=ppo_eps):
+def ppo_update(frame_idx, int_states, ext_states, actions, log_probs, returns, advantages, clip_param=ppo_eps):
 
     for _ in range(ppo_epochs):
-        for state, action, old_log_probs, return_, advantage in ppo_iter(states, actions, log_probs, returns, advantages):
-            dist, value = model(state)
+        for int_state, ext_state, action, old_log_probs, return_, advantage in ppo_iter(int_states, ext_states, actions, log_probs, returns, advantages):
+            dist, value = model(int_state, ext_state)
             entropy = dist.entropy().mean()
             new_log_probs = dist.log_prob(action)
 
@@ -101,10 +101,13 @@ if __name__ == "__main__":
 
     env = make_env(args.env)
     test = make_env(args.env)
-    num_inputs = env.num_observation
+    
+    num_internal = env.shape_internal
+    num_external = env.shape_external
+    # num_inputs = env.num_observation
     num_outputs = env.num_action
 
-    model = ActorCritic(num_inputs, num_outputs).to(device)
+    model = ActorCritic(num_internal, num_external, num_outputs).to(device)
     if args.model is not None:
         model.load_state_dict(torch.load(args.model, map_location=device))
     print(model)
@@ -123,15 +126,18 @@ if __name__ == "__main__":
 
         log_probs = []
         values = []
-        states = []
+        int_states = []
+        ext_states = []
+        # states = []
         actions = []
         rewards = []
         masks = []
 
         start = time.perf_counter()
         for _ in range(ppo_steps):
-            state = torch.FloatTensor(state).to(device)
-            dist, value = model(state)
+            int_state = torch.FloatTensor(state[0]).to(device)
+            ext_state = torch.FloatTensor(state[1]).unsqueeze(1).to(device)
+            dist, value = model(int_state, ext_state)
             
             action = dist.sample()
             next_state, reward, done = env.step(action.cpu().numpy())
@@ -142,7 +148,9 @@ if __name__ == "__main__":
             rewards.append(torch.FloatTensor(reward).unsqueeze(1).to(device))
             masks.append(torch.FloatTensor(1 - done).unsqueeze(1).to(device))
 
-            states.append(state)
+            int_states.append(int_state)
+            ext_states.append(ext_state)
+            # states.append(state)
             actions.append(action)
 
             state = next_state
@@ -152,21 +160,25 @@ if __name__ == "__main__":
         print('last reward:\n', reward)
         print('step elapsed:', time.perf_counter() - start)
 
-        next_state = torch.FloatTensor(next_state).to(device)
-        _, next_value = model(next_state)
+        next_int_state = torch.FloatTensor(state[0]).to(device)
+        next_ext_state = torch.FloatTensor(state[1]).unsqueeze(1).to(device)
+        # next_state = torch.FloatTensor(next_state).to(device)
+        _, next_value = model(next_int_state, next_ext_state)
         returns = compute_gae(next_value, rewards, masks, values)
 
         returns = torch.cat(returns).detach()
         log_probs = torch.cat(log_probs).detach()
         values = torch.cat(values).detach()
-        states = torch.cat(states)
+        int_states = torch.cat(int_states)
+        ext_states = torch.cat(ext_states)
+        # states = torch.cat(states)
         actions = torch.cat(actions)
         advantages = returns - values
         advantages = normalize(advantages)
 
         print('update...')
         start = time.perf_counter()
-        ppo_update(frame_idx, states, actions, log_probs, returns, advantages)
+        ppo_update(frame_idx, int_states, ext_states, actions, log_probs, returns, advantages)
         print(f'update finished, elasped: {time.perf_counter() - start:.5f}')
         train_epoch += 1
 

@@ -45,7 +45,9 @@ class Environment():
         self.avg_times = np.zeros(10, dtype=np.float64)
 
         # self.reset()
-        self.num_observation = 3 + self.n_ray * self.d # number of states
+        self.shape_internal = 3
+        self.shape_external = (self.d, self.n_ray)
+        # self.num_observation = 3 + self.n_ray * self.d # number of states
         self.num_action = 2 # number of actions
 
     def reset(self):
@@ -238,6 +240,8 @@ class Environment():
         for i in reversed(range(1, self.d)):
             self.depth_maps[:,i,:] = self.depth_maps[:,i-1,:]
         self.depth_maps[:,0,:] = ext_state
+
+        return int_state, self.depth_maps
         
         return np.concatenate((int_state, self.depth_maps.reshape(-1, self.n_ray * self.d)), axis=1)
 

@@ -210,7 +210,7 @@ def step(env, model, state):
     next_state, reward, _ = env.step(action)
     elapsed = time.perf_counter() - start
     avg_step_time = avg_step_time + (elapsed - avg_step_time) / total_steps
-    print(f'avg step elapsed: {avg_step_time:.5f}')
+    print(f'avg step elapsed: {avg_step_time:.5f}', end='\r')
     return next_state, reward
 
 if __name__ == "__main__":
@@ -230,6 +230,7 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
 
     state = env.reset()
+    print(state)
     total_reward = 0
     total_steps = 1
 
