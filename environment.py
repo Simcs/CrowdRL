@@ -74,6 +74,7 @@ class Environment():
         self.o_t = np.array([agent.ori for agent in self.agents]) # orientations
         self.targets = np.array([agent.target for agent in self.agents])
         self.obs_pos = np.array([obstacle.pos for obstacle in self.obstacles])
+        self.dones = np.array([False for agent in self.agents])
         self.p_t1 = self.v_t1 = self.w_t1 = self.o_t1 = None
 
         self.frame = 1
@@ -113,7 +114,8 @@ class Environment():
         # self.avg_times[2] += (elapsed - self.avg_times[2]) / self.frame
 
         dist = np.linalg.norm(self.targets - self.p_t1, axis=1)
-        dones = dist < self.eps
+        self.dones = np.logical_or(self.dones, dist < self.eps)
+        # dones = dist < self.eps
 
         self.frame += 1
         
@@ -123,7 +125,7 @@ class Environment():
         # print('internal state:', self.avg_times[4])
         # print('external state:', self.avg_times[5])
 
-        return states, rewards, dones
+        return states, rewards, self.dones
     
     def updateStates(self, force):
         # update positions, velocities
@@ -213,6 +215,9 @@ class Environment():
         ori_diff = np.abs(self.w_t1 - self.w_t)
         for i in range(n):
             orientation_reward[i] = -self.flood(ori_diff[i], self.w_min, self.w_max)
+        
+        done_reward = np.full(n, -1, dtype=np.float64)
+        done_reward[self.dones] = 0
 
         if self.frame % 500 == 0:
             print('frame:', self.frame)
@@ -220,9 +225,10 @@ class Environment():
             print('collision_reward:', collision_reward)
             print('velocity_reward:', velocity_reward)
             print('orientation reward:', orientation_reward)
+            print('done reward:', done_reward)
             print()
         
-        return self.w1 * distance_reward + self.w2 * collision_reward + self.w3 * velocity_reward + self.w4 * orientation_reward
+        return self.w1 * distance_reward + self.w2 * collision_reward + self.w3 * velocity_reward + self.w4 * orientation_reward + done_reward
 
     def computeStates(self):
         # start = time.perf_counter()
