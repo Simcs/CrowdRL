@@ -202,15 +202,17 @@ def getWorldCoordinate(x, y):
 def step(env, model, state):
     global avg_step_time, total_steps
     
-    state = torch.FloatTensor(state)
-    dist, _ = model(state)
+    int_state = torch.FloatTensor(state[0])
+    ext_state = torch.FloatTensor(state[1]).unsqueeze(1)
+    # state = torch.FloatTensor(state)
+    dist, _ = model(int_state, ext_state)
     action = dist.sample().numpy()
 
     start = time.perf_counter()
     next_state, reward, _ = env.step(action)
     elapsed = time.perf_counter() - start
     avg_step_time = avg_step_time + (elapsed - avg_step_time) / total_steps
-    print(f'avg step elapsed: {avg_step_time:.5f}')
+    # print(f'avg step elapsed: {avg_step_time:.5f}', end='\r')
     return next_state, reward
 
 if __name__ == "__main__":
@@ -224,12 +226,15 @@ if __name__ == "__main__":
     env = make_env(args.env)
     hidden_size = 256
 
-    num_inputs = env.num_observation
+    num_internal = env.shape_internal
+    num_external = env.shape_external
+    # num_inputs = env.num_observation
     num_outputs = env.num_action
-    model = ActorCritic(num_inputs, num_outputs, hidden_size)
+    model = ActorCritic(num_internal, num_external, num_outputs)
     model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
 
     state = env.reset()
+    print(state)
     total_reward = 0
     total_steps = 1
 

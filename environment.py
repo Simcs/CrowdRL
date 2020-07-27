@@ -45,7 +45,9 @@ class Environment():
         self.avg_times = np.zeros(10, dtype=np.float64)
 
         # self.reset()
-        self.num_observation = 3 + self.n_ray * self.d # number of states
+        self.shape_internal = 3
+        self.shape_external = (self.d, self.n_ray)
+        # self.num_observation = 3 + self.n_ray * self.d # number of states
         self.num_action = 2 # number of actions
 
     def reset(self):
@@ -74,7 +76,6 @@ class Environment():
         self.o_t = np.array([agent.ori for agent in self.agents]) # orientations
         self.targets = np.array([agent.target for agent in self.agents])
         self.obs_pos = np.array([obstacle.pos for obstacle in self.obstacles])
-        self.dones = np.array([False for agent in self.agents])
         self.p_t1 = self.v_t1 = self.w_t1 = self.o_t1 = None
 
         self.frame = 1
@@ -114,8 +115,7 @@ class Environment():
         # self.avg_times[2] += (elapsed - self.avg_times[2]) / self.frame
 
         dist = np.linalg.norm(self.targets - self.p_t1, axis=1)
-        self.dones = np.logical_or(self.dones, dist < self.eps)
-        # dones = dist < self.eps
+        dones = dist < self.eps
 
         self.frame += 1
         
@@ -125,7 +125,7 @@ class Environment():
         # print('internal state:', self.avg_times[4])
         # print('external state:', self.avg_times[5])
 
-        return states, rewards, self.dones
+        return states, rewards, dones
     
     def updateStates(self, force):
         # update positions, velocities
@@ -215,9 +215,6 @@ class Environment():
         ori_diff = np.abs(self.w_t1 - self.w_t)
         for i in range(n):
             orientation_reward[i] = -self.flood(ori_diff[i], self.w_min, self.w_max)
-        
-        done_reward = np.full(n, -1, dtype=np.float64)
-        done_reward[self.dones] = 0
 
         if self.frame % 500 == 0:
             print('frame:', self.frame)
@@ -225,10 +222,9 @@ class Environment():
             print('collision_reward:', collision_reward)
             print('velocity_reward:', velocity_reward)
             print('orientation reward:', orientation_reward)
-            print('done reward:', done_reward)
             print()
         
-        return self.w1 * distance_reward + self.w2 * collision_reward + self.w3 * velocity_reward + self.w4 * orientation_reward + done_reward
+        return self.w1 * distance_reward + self.w2 * collision_reward + self.w3 * velocity_reward + self.w4 * orientation_reward
 
     def computeStates(self):
         # start = time.perf_counter()
@@ -244,6 +240,8 @@ class Environment():
         for i in reversed(range(1, self.d)):
             self.depth_maps[:,i,:] = self.depth_maps[:,i-1,:]
         self.depth_maps[:,0,:] = ext_state
+
+        return int_state, self.depth_maps
         
         return np.concatenate((int_state, self.depth_maps.reshape(-1, self.n_ray * self.d)), axis=1)
 
