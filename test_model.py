@@ -23,6 +23,8 @@ class CrowdSimulator():
 
         self.env = env
         self.model = model
+        
+        self.paths = [[] for agent in self.env.agents]
 
         self.radius = 200
         self.panX = 0
@@ -81,12 +83,15 @@ class CrowdSimulator():
         for obstacle in self.env.obstacles:
             self.paintCircle(obstacle.pos, obstacle.r, [0.2, 0.5, 0.2])
         for agent in self.env.agents:
-            glColor3f(0.0, 0.0, 0.0)
-            self.paintCircle(agent.pos, agent.r, [1.0, 0.0, 0.0])
+            self.paintCircle(agent.pos, agent.r, agent.color)
             self.paintCircle(agent.target, 2, [0.0, 0.0, 1.0])
             self.paintArrow(agent.vel, agent.pos, agent.r)
-        
+        for i in range(len(self.paths)):
+            for p in self.paths[i]:
+                self.paintCircle(p, 1, self.env.agents[i].color)
+
     def paintArrow(self, vel, pos, r):
+        glColor3f(0.0, 0.0, 0.0)
         glBegin(GL_TRIANGLES)
         v1 = normalize(vel)
         glVertex2fv(pos + v1 * r)
@@ -255,10 +260,14 @@ if __name__ == "__main__":
             state = next_state
             total_reward += reward
             total_steps += 1
-            
+
             glfw.poll_events()
             sim.display()
             glfw.swap_buffers(sim.window)
+
+            if env.frame % 100 == 0:
+                for i in range(len(env.agents)):
+                    sim.paths[i].append(env.agents[i].pos)
     else:
         iter = 1000
         for i in range(1000):

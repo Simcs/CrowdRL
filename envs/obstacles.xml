@@ -6,6 +6,9 @@
         <x1>-100</x1>
         <y1>0</y1>
         <radius>4</radius>
+        <color_R>27</color_R>
+        <color_G>161</color_G>
+        <color_B>226</color_B>
     </agent>
 
     <obstacle>

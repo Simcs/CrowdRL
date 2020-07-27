@@ -27,7 +27,7 @@ class Environment():
         self.eps = 1 # distance between agent and target
         self.dt = 1e-1 # timestep
 
-        self.v_min = 0.0 # desired minimum velocity
+        self.v_min = 0.5 # desired minimum velocity
         self.v_max = 1.5 # desired maximum velocity
         self.t_max = 40 # maximum sight of agent
 
@@ -58,7 +58,11 @@ class Environment():
             x1 = float(agent.findtext('x1'))
             y1 = float(agent.findtext('y1'))
             r = float(agent.findtext('radius'))
-            self.agents.append(Agent(x, y, x1, y1, r))
+            color_r = float(agent.findtext('color_R')) / 255
+            color_g = float(agent.findtext('color_G')) / 255
+            color_b = float(agent.findtext('color_B')) / 255
+            color = [color_r, color_g, color_b]
+            self.agents.append(Agent(x, y, x1, y1, r, color))
 
         self.obstacles = []
         for obstacle in root.findall('obstacle'):
@@ -170,8 +174,11 @@ class Environment():
             i, j = indices[k]
             a = self.agents[i]
             b = self.agents[j]
-            d = (dist[k] - (a.r + b.r)) ** 2
-            r = max([min_collision_reward, -1 / (d + 1e-8)])
+            d = dist[k] - (a.r + b.r)
+            if d < 0:
+                r = min_collision_reward
+            else:
+                r = max([min_collision_reward, -1 / (d ** 2 + 1e-8)])
             collision_reward[i] += r
             collision_reward[j] += r
         
@@ -181,18 +188,22 @@ class Environment():
             for j in range(len(self.obstacles)):
                 a = self.agents[i]
                 b = self.obstacles[j]
-                d = (dist[i][j] - (a.r + b.r)) ** 2
-                r = max([-1, -1 / (d + 1e-8)])
+                d = dist[i][j] - (a.r + b.r)
+                if d < 0:
+                    r = min_collision_reward
+                else:
+                    r = max([min_collision_reward, -1 / (d ** 2 + 1e-8)])    
                 collision_reward[i] += r
 
         # non-scipy version
+        # min_collision_reward = -10
         # collision_reward = np.zeros(len(self.agents), dtype=np.float64)
         # for i in range(len(self.agents)):
         #     for j in range(i + 1, len(self.agents)):
         #         a = self.agents[i]
         #         b = self.agents[j]
         #         d = self.distance(a.pos, b.pos) - (a.r + b.r)
-        #         r = max([-1, -1 / (d + 1e-8)])
+        #         r = max([min_collision_reward, -1 / (d + 1e-8)])
         #         collision_reward[i] += r
         #         collision_reward[j] += r
         #
@@ -305,35 +316,6 @@ class Environment():
 
         # return state_ext
 
-        # -- No vectorization --
-        # state_ext = []
-        # for agent in self.agents:
-        #     depth_map = []
-        #     for i in range(self.n_ray):
-        #         theta = agent.theta + (i * np.pi) / (self.n_ray - 1) - np.pi / 2
-        #         d = np.array([math.cos(theta), math.sin(theta)])
-        #         objs = np.concatenate((self.agents, self.obstacles))
-        #         t_min = self.t_max
-                
-        #         for obj in objs:
-        #             if agent == obj:
-        #                 continue
-        #             p = obj.pos - agent.pos
-        #             tm = np.dot(p, d)
-        #             lm_2 = np.dot(p, p) - tm ** 2
-        #             dt = obj.r ** 2 - lm_2
-        #             if dt > 0:
-        #                 dt = np.sqrt(dt)
-        #                 t0 = tm - dt
-        #                 t1 = tm + dt
-        #                 if t0 > 0:
-        #                     t_min = min(t_min, t0)
-        #                 elif t1 > 0:
-        #                     t_min = min(t_min, t1)
-        #         depth_map.append(t_min)
-        #     state_ext.append(depth_map)
-        # return np.array(state_ext)
-
     def distance(self, p1, p2):
         return math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)
     
@@ -342,12 +324,13 @@ class Environment():
 
 class Agent():
 
-    def __init__(self, x, y, x1, y1, r):
+    def __init__(self, x, y, x1, y1, r, color):
         
         self.pos = np.array([x, y], dtype=np.float64)
         self.vel = np.zeros(2, dtype=np.float64)
         self.target = np.array([x1, y1], dtype=np.float64)
         self.r = r
+        self.color = color
 
         direction = self.target - self.pos
         self.theta = math.atan2(direction[1], direction[0])

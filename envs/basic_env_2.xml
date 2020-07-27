@@ -6,6 +6,9 @@
         <x1>80</x1>
         <y1>0</y1>
         <radius>4</radius>
+        <color_R>229</color_R>
+        <color_G>20</color_G>
+        <color_B>0</color_B>
     </agent>
     <agent>
         <x>80</x>
@@ -13,6 +16,9 @@
         <x1>-80</x1>
         <y1>0</y1>
         <radius>4</radius>
+        <color_R>244</color_R>
+        <color_G>114</color_G>
+        <color_B>208</color_B>
     </agent>
     <agent>
         <x>0</x>
@@ -20,6 +26,9 @@
         <x1>0</x1>
         <y1>-80</y1>
         <radius>4</radius>
+        <color_R>27</color_R>
+        <color_G>161</color_G>
+        <color_B>226</color_B>
     </agent>
     <agent>
         <x>0</x>
@@ -27,6 +36,9 @@
         <x1>0</x1>
         <y1>80</y1>
         <radius>4</radius>
+        <color_R>96</color_R>
+        <color_G>169</color_G>
+        <color_B>23</color_B>
     </agent>
     <agent>
         <x>56</x>
@@ -34,6 +46,9 @@
         <x1>-56</x1>
         <y1>-56</y1>
         <radius>4</radius>
+        <color_R>0</color_R>
+        <color_G>80</color_G>
+        <color_B>239</color_B>
     </agent>
     <agent>
         <x>56</x>
@@ -41,6 +56,9 @@
         <x1>-56</x1>
         <y1>56</y1>
         <radius>4</radius>
+        <color_R>109</color_R>
+        <color_G>135</color_G>
+        <color_B>100</color_B>
     </agent>
     <agent>
         <x>-56</x>
@@ -48,6 +66,9 @@
         <x1>56</x1>
         <y1>56</y1>
         <radius>4</radius>
+        <color_R>23</color_R>
+        <color_G>46</color_G>
+        <color_B>127</color_B>
     </agent>
     <agent>
         <x>-56</x>
@@ -55,18 +76,8 @@
         <x1>56</x1>
         <y1>-56</y1>
         <radius>4</radius>
+        <color_R>170</color_R>
+        <color_G>0</color_G>
+        <color_B>255</color_B>
     </agent>
-    <!-- <agent>
-        <x>100</x>
-        <y>100</y>
-        <x1>-100</x1>
-        <y1>-100</y1>
-        <radius>4</radius>
-    </agent>
-
-    <obstacle>
-        <x>20</x>
-        <y>20</y>
-        <radius>3</radius>
-    </obstacle> -->
 </env>
