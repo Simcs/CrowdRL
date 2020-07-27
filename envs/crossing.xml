@@ -2,70 +2,70 @@
 <env>
     <!-- right to left -->
     <agent>
-        <x>10</x>
+        <x>60</x>
         <y>0</y>
         <x1>-90</x1>
         <y1>0</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>20</x>
+        <x>70</x>
         <y>70</y>
         <x1>-80</x1>
         <y1>70</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>30</x>
+        <x>80</x>
         <y>40</y>
         <x1>-70</x1>
         <y1>40</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>40</x>
+        <x>90</x>
         <y>90</y>
         <x1>-60</x1>
         <y1>90</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>50</x>
+        <x>100</x>
         <y>-80</y>
         <x1>-50</x1>
         <y1>-80</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>50</x>
+        <x>100</x>
         <y>100</y>
         <x1>-50</x1>
         <y1>100</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>40</x>
+        <x>90</x>
         <y>-10</y>
         <x1>-60</x1>
         <y1>-10</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>30</x>
+        <x>80</x>
         <y>10</y>
         <x1>-70</x1>
         <y1>10</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>20</x>
+        <x>70</x>
         <y>-60</y>
         <x1>-80</x1>
         <y1>-60</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>10</x>
+        <x>60</x>
         <y>50</y>
         <x1>-90</x1>
         <y1>50</y1>
@@ -74,70 +74,70 @@
 
     <!-- left to right -->
     <agent>
-        <x>-10</x>
+        <x>-60</x>
         <y>0</y>
         <x1>90</x1>
         <y1>0</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>-20</x>
+        <x>-70</x>
         <y>70</y>
         <x1>80</x1>
         <y1>70</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>-30</x>
+        <x>-80</x>
         <y>40</y>
         <x1>70</x1>
         <y1>40</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>-40</x>
+        <x>-90</x>
         <y>90</y>
         <x1>60</x1>
         <y1>90</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>-50</x>
+        <x>-100</x>
         <y>-80</y>
         <x1>50</x1>
         <y1>-80</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>-50</x>
+        <x>-100</x>
         <y>100</y>
         <x1>50</x1>
         <y1>100</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>-40</x>
+        <x>-90</x>
         <y>-10</y>
         <x1>60</x1>
         <y1>-10</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>-30</x>
+        <x>-80</x>
         <y>10</y>
         <x1>70</x1>
         <y1>10</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>-20</x>
+        <x>-70</x>
         <y>-60</y>
         <x1>80</x1>
         <y1>-60</y1>
         <radius>4</radius>
     </agent>
     <agent>
-        <x>-10</x>
+        <x>-60</x>
         <y>50</y>
         <x1>90</x1>
         <y1>50</y1>
