@@ -3,6 +3,7 @@ import argparse
 import time
 import sys
 import os
+import random
 
 import torch
 import torch.nn as nn
@@ -11,24 +12,27 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 
 from model import ActorCritic
-from environment import make_env
+from environment import make_env, make_env_pool
 
 learning_rate = 1e-4 # learning rate
 gamma = 0.99 # discount rate
 gae_lambda = 0.95 # used in GAE evaluation
 
 ppo_eps = 0.2 # clip ratio
+
 critic_discount = 0.5 # critic loss coefficient
 entropy_beta = 0.0 # 1e-3 # entropy loss coefficient
 
-ppo_steps = 2048
+ppo_steps = 1024
 mini_batch_size = 64
 ppo_epochs = 10
 
 test_epochs = 10
 log_epochs = 100
-num_tests = 3
+num_tests = 5
 target_reward = -10
+
+env_pool = make_env_pool()
 
 def normalize(x):
     x -= x.mean()
@@ -47,6 +51,7 @@ def test_env(env, model):
             next_state, reward, _ = env.step(action)
             state = next_state
             total_reward += reward
+            
     return total_reward
 
 def compute_gae(next_value, rewards, masks, values, gamma=gamma, lam=gae_lambda):
@@ -118,6 +123,10 @@ if __name__ == "__main__":
     # state = env.reset()
 
     for i in range(iter):
+        if train_epoch % 10 == 0:
+            env = random.choice(env_pool)
+            print('current environment:', env.name)
+
         state = env.reset()
         model.train()
 
@@ -127,6 +136,7 @@ if __name__ == "__main__":
         actions = []
         rewards = []
         masks = []
+
 
         start = time.perf_counter()
         for _ in range(ppo_steps):
@@ -171,8 +181,10 @@ if __name__ == "__main__":
         train_epoch += 1
 
         if train_epoch % test_epochs == 0:
-            test_reward = np.mean([test_env(test, model) for _ in range(num_tests)])
-            print(f'Frame {frame_idx}. avg reward: {test_reward}')
+            test_reward = 0
+            for env_ in env_pool:
+                test_reward += np.mean([test_env(env_, model) for _ in range(num_tests)])
+            print(f'Iteration {i}. avg reward: {test_reward}')
             print(f'elapsed time: {time.time() - start:.2f}')
 
             name = f'iteration-{i},avg_reward-{test_reward:.3f}.dat'

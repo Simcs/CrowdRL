@@ -26,7 +26,7 @@ class CrowdSimulator():
         
         self.paths = [[] for agent in self.env.agents]
 
-        self.radius = 200
+        self.radius = 150
         self.panX = 0
         self.panY = 0
         self.originPanX = 0
@@ -82,13 +82,13 @@ class CrowdSimulator():
 
         for obstacle in self.env.obstacles:
             self.paintCircle(obstacle.pos, obstacle.r, [0.2, 0.5, 0.2])
+        for i in range(len(self.paths)):
+            for p in self.paths[i]:
+                self.paintCircle(p, 1, self.env.agents[i].color)
         for agent in self.env.agents:
             self.paintCircle(agent.pos, agent.r, agent.color)
             self.paintCircle(agent.target, 2, [0.0, 0.0, 1.0])
             self.paintArrow(agent.vel, agent.pos, agent.r)
-        for i in range(len(self.paths)):
-            for p in self.paths[i]:
-                self.paintCircle(p, 1, self.env.agents[i].color)
 
     def paintArrow(self, vel, pos, r):
         glColor3f(0.0, 0.0, 0.0)
@@ -215,7 +215,7 @@ def step(env, model, state):
     next_state, reward, _ = env.step(action)
     elapsed = time.perf_counter() - start
     avg_step_time = avg_step_time + (elapsed - avg_step_time) / total_steps
-    print(f'avg step elapsed: {avg_step_time:.5f}')
+    print(f'avg step elapsed: {avg_step_time:.5f}', end='\r')
     return next_state, reward
 
 if __name__ == "__main__":
@@ -223,7 +223,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-m", "--model", required=True, help="Model file to load")
     parser.add_argument("-e", "--env", default="basic", help="Environment name to use")
-    parser.add_argument("-r", "--render", default=True, help="Render environment")
+    parser.add_argument("-r", "--render", default="True", help="Render environment")
+    parser.add_argument("-R", "--real", default="False", help="Render in real time")
     args = parser.parse_args()
     
     env = make_env(args.env)
@@ -239,9 +240,16 @@ if __name__ == "__main__":
     total_steps = 1
 
     avg_step_time = 0.0
+    print(type(args.render))
 
-    if args.render == "False" or args.render == "false" or args.render == "f":
+    if "f" in args.render or "F" in args.render:
         args.render = False
+    else:
+        args.render = True
+    if "f" in args.real or "F" in args.real:
+        args.real = False
+    else:
+        args.render = True
 
     if args.render:
         sim = CrowdSimulator(env, model)
@@ -265,9 +273,13 @@ if __name__ == "__main__":
             sim.display()
             glfw.swap_buffers(sim.window)
 
-            if env.frame % 100 == 0:
+            # record positions for every 10 seconds.
+            if (env.frame * env.dt) % 5 == 0:
                 for i in range(len(env.agents)):
                     sim.paths[i].append(env.agents[i].pos)
+            
+            if args.real:
+                time.sleep(env.dt)
     else:
         iter = 1000
         for i in range(1000):

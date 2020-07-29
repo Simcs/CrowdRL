@@ -10,26 +10,40 @@ from scipy.spatial.distance import pdist, cdist
 
 def make_env(name):
     if name == "basic":
-        return Environment('./envs/basic_env.xml')
-    elif name == "basic2":
-        return Environment('./envs/basic_env_2.xml')
+        return Environment(name, './envs/basic.xml')
+    elif name == "circle1":
+        return Environment(name, './envs/circle1.xml')
+    elif name == "circle2":
+        return Environment(name, './envs/circle2.xml')
+    elif name == "crossing1":
+        return Environment(name, './envs/crossing1.xml')
+    elif name == "crossing2":
+        return Environment(name, './envs/crossing2.xml')
     elif name == "obstacles":
-        return Environment('./envs/obstacles.xml')
-    elif name == "crossing":
-        return Environment('./envs/crossing.xml')
+        return Environment(name, './envs/obstacles.xml')
     return None
+
+def make_env_pool():
+    env_pool = []
+    env_pool.append(make_env("circle1"))
+    env_pool.append(make_env("circle2"))
+    env_pool.append(make_env("crossing1"))
+    env_pool.append(make_env("crossing2"))
+    env_pool.append(make_env("obstacles"))
+    return env_pool
 
 class Environment():
 
-    def __init__(self, env_fname):
-        self.tree = parse(env_fname) 
+    def __init__(self, name, env_fname):
+        self.tree = parse(env_fname)
+        self.name = name
 
-        self.eps = 1 # distance between agent and target
-        self.dt = 1e-1 # timestep
+        self.eps = 2 # goal distance between agent and target
+        self.dt = 0.2 # timestep
 
         self.v_min = 0.5 # desired minimum velocity
         self.v_max = 1.5 # desired maximum velocity
-        self.t_max = 40 # maximum sight of agent
+        self.t_max = 30 # maximum sight of agent
 
         self.w_min = 0.0 # desired minimum angular delta
         self.w_max = np.pi / 4 # desired maximum angular delta
@@ -41,6 +55,8 @@ class Environment():
 
         self.n_ray = 20 # number of rays
         self.d = 4 # depth map size
+
+        self.min_collision_reward = -10
 
         self.avg_times = np.zeros(10, dtype=np.float64)
 
@@ -119,8 +135,7 @@ class Environment():
 
         dist = np.linalg.norm(self.targets - self.p_t1, axis=1)
         self.dones = np.logical_or(self.dones, dist < self.eps)
-        # dones = dist < self.eps
-
+        
         self.frame += 1
         
         # print('update:', self.avg_times[0])
@@ -166,7 +181,6 @@ class Environment():
         n = len(self.agents)
 
         # 2. collision reward
-        min_collision_reward = -10
         collision_reward = np.zeros(n, dtype=np.float64)
         dist = pdist(self.p_t1)
         indices = list(combinations(range(n), 2))
@@ -176,9 +190,9 @@ class Environment():
             b = self.agents[j]
             d = dist[k] - (a.r + b.r)
             if d < 0:
-                r = min_collision_reward
+                r = self.min_collision_reward
             else:
-                r = max([min_collision_reward, -1 / (d ** 2 + 1e-8)])
+                r = max([self.min_collision_reward, -1 / (d ** 2 + 1e-8)])
             collision_reward[i] += r
             collision_reward[j] += r
         
@@ -190,9 +204,9 @@ class Environment():
                 b = self.obstacles[j]
                 d = dist[i][j] - (a.r + b.r)
                 if d < 0:
-                    r = min_collision_reward
+                    r = self.min_collision_reward
                 else:
-                    r = max([min_collision_reward, -1 / (d ** 2 + 1e-8)])    
+                    r = max([self.min_collision_reward, -1 / (d ** 2 + 1e-8)])    
                 collision_reward[i] += r
 
         # non-scipy version
@@ -227,8 +241,8 @@ class Environment():
         for i in range(n):
             orientation_reward[i] = -self.flood(ori_diff[i], self.w_min, self.w_max)
         
-        done_reward = np.full(n, -1, dtype=np.float64)
-        done_reward[self.dones] = 0
+        # done_reward = np.full(n, -1, dtype=np.float64)
+        # done_reward[self.dones] = 0
 
         if self.frame % 500 == 0:
             print('frame:', self.frame)
@@ -236,10 +250,10 @@ class Environment():
             print('collision_reward:', collision_reward)
             print('velocity_reward:', velocity_reward)
             print('orientation reward:', orientation_reward)
-            print('done reward:', done_reward)
+            # print('done reward:', done_reward)
             print()
         
-        return self.w1 * distance_reward + self.w2 * collision_reward + self.w3 * velocity_reward + self.w4 * orientation_reward + done_reward
+        return self.w1 * distance_reward + self.w2 * collision_reward + self.w3 * velocity_reward + self.w4 * orientation_reward
 
     def computeStates(self):
         # start = time.perf_counter()
