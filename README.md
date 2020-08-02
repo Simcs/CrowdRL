@@ -3,7 +3,7 @@ crowd simulation using PPO algorithm.
 
 ***
 
-## Implemented environments
+## Environments
 - ***basic*** - Basic environment with only one agent and target.
 - ***circle1*** - An environment where 8 agents are located at the vertices that divide the circle into 8 equal parts, and targeting the opposite vertex.
 - ***circle2*** - An environment where 8 agents are located at the 4 vertices and 4 center of sides of a square, and targeting the opposite vertex.
