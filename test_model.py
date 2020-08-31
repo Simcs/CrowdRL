@@ -223,8 +223,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-m", "--model", required=True, help="Model file to load")
     parser.add_argument("-e", "--env", default="basic", help="Environment name to use")
-    parser.add_argument("-r", "--render", default="True", help="Render environment")
-    parser.add_argument("-R", "--real", default="False", help="Render in real time")
+    parser.add_argument("--render", dest="render", action="store_true", help="Render environment")
+    parser.add_argument("--no-render", dest="render", action="store_false", help="Do not render environment")
+    parser.add_argument("--real", dest="real", action="store_true", help="Render in real time")
+    parser.add_argument("--no-real", dest="real", action="store_false", help="Do not render in real time")
+    parser.set_defaults(render=True, real=False)
     args = parser.parse_args()
     
     env = make_env(args.env)
@@ -232,7 +235,7 @@ if __name__ == "__main__":
 
     num_inputs = env.num_observation
     num_outputs = env.num_action
-    model = ActorCritic(num_inputs, num_outputs, hidden_size)
+    model = ActorCritic(num_inputs, num_outputs)
     model.load_state_dict(torch.load(args.model, map_location=torch.device('cpu')))
 
     state = env.reset()
@@ -240,16 +243,6 @@ if __name__ == "__main__":
     total_steps = 1
 
     avg_step_time = 0.0
-    print(type(args.render))
-
-    if "f" in args.render or "F" in args.render:
-        args.render = False
-    else:
-        args.render = True
-    if "f" in args.real or "F" in args.real:
-        args.real = False
-    else:
-        args.render = True
 
     if args.render:
         sim = CrowdSimulator(env, model)
@@ -273,7 +266,7 @@ if __name__ == "__main__":
             sim.display()
             glfw.swap_buffers(sim.window)
 
-            # record positions for every 10 seconds.
+            # record positions for every 5 seconds.
             if (env.frame * env.dt) % 5 == 0:
                 for i in range(len(env.agents)):
                     sim.paths[i].append(env.agents[i].pos)

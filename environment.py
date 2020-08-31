@@ -39,10 +39,10 @@ class Environment():
         self.name = name
 
         self.eps = 2 # goal distance between agent and target
-        self.dt = 0.2 # timestep
+        self.dt = 0.4 # timestep
 
-        self.v_min = 0.5 # desired minimum velocity
-        self.v_max = 1.5 # desired maximum velocity
+        self.v_min = 0.2 # desired minimum velocity
+        self.v_max = 1.2 # desired maximum velocity
         self.t_max = 30 # maximum sight of agent
 
         self.w_min = 0.0 # desired minimum angular delta
@@ -54,14 +54,16 @@ class Environment():
         self.w4 = 1.0 # theta flood reward weight
 
         self.n_ray = 20 # number of rays
-        self.d = 4 # depth map size
+        self.d_past = 3 # past depth map size
+        self.d_future = 3 # future depth map size
+        self.d_total = self.d_past + self.d_future + 1 # total depth map size
 
         self.min_collision_reward = -10
 
         self.avg_times = np.zeros(10, dtype=np.float64)
 
         # self.reset()
-        self.num_observation = 3 + self.n_ray * self.d # number of states
+        self.num_observation = 3 + self.n_ray * self.d_total # number of states
         self.num_action = 2 # number of actions
 
     def reset(self):
@@ -95,14 +97,16 @@ class Environment():
         self.targets = np.array([agent.target for agent in self.agents])
         self.obs_pos = np.array([obstacle.pos for obstacle in self.obstacles])
         self.dones = np.array([False for agent in self.agents])
+        self.force = np.zeros((len(self.agents), 2, 1), dtype=np.float64)
         self.p_t1 = self.v_t1 = self.w_t1 = self.o_t1 = None
 
         self.frame = 1
 
-        ext_state = self.externalStates()
+        # use current state as memory
+        ext_state = self.externalStates(self.p_t, self.v_t, self.w_t, self.o_t)
         depth_maps = []
         for i in range(len(self.agents)):
-            depth_maps.append([ext_state[i]] * self.d)
+            depth_maps.append([ext_state[i]] * self.d_total)
         self.depth_maps = np.array(depth_maps)
 
         return self.computeStates()
@@ -111,8 +115,9 @@ class Environment():
     def step(self, action):
         # 1. apply forces
         # start = time.perf_counter()
-        force = action.reshape(len(self.agents), 2, 1)
-        self.updateStates(force)
+        self.force = action.reshape(len(self.agents), 2, 1)
+        self.p_t1, self.v_t1, self.w_t1, self.o_t1 = self.nextStates(self.p_t, self.v_t, self.w_t, self.o_t, self.force)
+        self.updateStates()
         # elapsed = time.perf_counter() - start
         # self.avg_times[0] += (elapsed - self.avg_times[0]) / self.frame
 
@@ -122,10 +127,7 @@ class Environment():
         # elapsed = time.perf_counter() - start
         # self.avg_times[1] += (elapsed - self.avg_times[1]) / self.frame
 
-        self.p_t = self.p_t1
-        self.v_t = self.v_t1
-        self.w_t = self.w_t1
-        self.o_t = self.o_t1
+        self.p_t, self.v_t, self.w_t, self.o_t = self.p_t1, self.v_t1, self.w_t1, self.o_t1
 
         # 3. compute states
         # start = time.perf_counter()
@@ -146,27 +148,30 @@ class Environment():
 
         return states, rewards, self.dones
     
-    def updateStates(self, force):
+    def nextStates(self, pos, vel, theta, ori, force):
         # update positions, velocities
-        n = len(self.agents)
-        self.p_t1 = self.p_t + self.dt * self.v_t
-        self.v_t1 = self.v_t + self.dt * (self.o_t @ force).reshape(n, 2)
+        n_agent = len(self.agents)
+        new_pos = pos + self.dt * vel
+        new_vel = vel + self.dt * (ori @ force).reshape(n_agent, 2)
 
         # update orientations
         def rotationMatrix(c, s):
             return np.array([[c, -s], [s, c]])
 
-        self.w_t1 = np.arctan2(self.v_t1[:, 1], self.v_t1[:, 0])
-        cos = np.cos(self.w_t1)
-        sin = np.sin(self.w_t1)
+        new_theta = np.arctan2(new_vel[:, 1], new_vel[:, 0])
+        cos = np.cos(new_theta)
+        sin = np.sin(new_theta)
 
+        new_ori = np.array([rotationMatrix(cos[i], sin[i]) for i in range(n_agent)])
+
+        return new_pos, new_vel, new_theta, new_ori
+
+    def updateStates(self):
         for i in range(len(self.agents)):
             self.agents[i].pos = self.p_t1[i]
             self.agents[i].vel = self.v_t1[i]
             self.agents[i].theta = self.w_t1[i]
-            self.agents[i].ori = rotationMatrix(cos[i], sin[i])
-
-        self.o_t1 = [agent.ori for agent in self.agents]
+            self.agents[i].ori = self.o_t1[i]
 
     def computeRewards(self):
         # 1. distance reward(continuous)
@@ -178,12 +183,12 @@ class Environment():
         # distance_reward = np.zeros(len(self.agents), dtype=np.float64)
         # distance_reward[dist < self.eps] = 1
 
-        n = len(self.agents)
+        n_agent = len(self.agents)
 
         # 2. collision reward
-        collision_reward = np.zeros(n, dtype=np.float64)
+        collision_reward = np.zeros(n_agent, dtype=np.float64)
         dist = pdist(self.p_t1)
-        indices = list(combinations(range(n), 2))
+        indices = list(combinations(range(n_agent), 2))
         for k in range(len(indices)):
             i, j = indices[k]
             a = self.agents[i]
@@ -198,7 +203,7 @@ class Environment():
         
         if len(self.obstacles) > 0:
             dist = cdist(self.p_t1, self.obs_pos)
-        for i in range(n):
+        for i in range(n_agent):
             for j in range(len(self.obstacles)):
                 a = self.agents[i]
                 b = self.obstacles[j]
@@ -209,36 +214,15 @@ class Environment():
                     r = max([self.min_collision_reward, -1 / (d ** 2 + 1e-8)])    
                 collision_reward[i] += r
 
-        # non-scipy version
-        # min_collision_reward = -10
-        # collision_reward = np.zeros(len(self.agents), dtype=np.float64)
-        # for i in range(len(self.agents)):
-        #     for j in range(i + 1, len(self.agents)):
-        #         a = self.agents[i]
-        #         b = self.agents[j]
-        #         d = self.distance(a.pos, b.pos) - (a.r + b.r)
-        #         r = max([min_collision_reward, -1 / (d + 1e-8)])
-        #         collision_reward[i] += r
-        #         collision_reward[j] += r
-        #
-        # for i in range(len(self.agents)):
-        #     for j in range(len(self.obstacles)):
-        #         a = self.agents[i]
-        #         b = self.obstacles[j]
-        #         d = self.distance(a.pos, b.pos) - (a.r + b.r)
-        #         r = max([-1, -1 / (d + 1e-8)])
-        #         collision_reward[i] += r
-        #         collision_reward[i] += reward
-
-        velocity_reward = np.zeros(n, dtype=np.float64)
+        velocity_reward = np.zeros(n_agent, dtype=np.float64)
         # velocity = np.linalg.norm(new_vel, axis=1)
-        for i in range(n):
+        for i in range(n_agent):
             v = np.sqrt(np.dot(self.agents[i].vel, self.agents[i].vel))
             velocity_reward[i] = -self.flood(v, self.v_min, self.v_max)
 
-        orientation_reward = np.zeros(n, dtype=np.float64)
+        orientation_reward = np.zeros(n_agent, dtype=np.float64)
         ori_diff = np.abs(self.w_t1 - self.w_t)
-        for i in range(n):
+        for i in range(n_agent):
             orientation_reward[i] = -self.flood(ori_diff[i], self.w_min, self.w_max)
         
         # done_reward = np.full(n, -1, dtype=np.float64)
@@ -262,15 +246,23 @@ class Environment():
         # self.avg_times[4] += (elapsed - self.avg_times[4]) / self.frame
 
         # start = time.perf_counter()
-        ext_state = self.externalStates()
+        ext_state = self.externalStates(self.p_t, self.v_t, self.w_t, self.o_t)
         # elapsed = time.perf_counter() - start
         # self.avg_times[5] += (elapsed - self.avg_times[5]) / self.frame
 
-        for i in reversed(range(1, self.d)):
+        # expected external states
+        pos, vel, theta, ori = self.p_t, self.v_t, self.w_t, self.o_t
+        for i in reversed(range(0, self.d_future)):
+            new_pos, new_vel, new_theta, new_ori = self.nextStates(pos, vel, theta, ori, self.force)
+            new_ext_state = self.externalStates(new_pos, new_vel, new_theta, new_ori)
+            self.depth_maps[:,i,:] = new_ext_state
+            pos, vel, theta, ori = new_pos, new_vel, new_theta, new_ori
+
+        for i in reversed(range(self.d_future, self.d_total)):
             self.depth_maps[:,i,:] = self.depth_maps[:,i-1,:]
-        self.depth_maps[:,0,:] = ext_state
+        self.depth_maps[:,self.d_future - 1,:] = ext_state
         
-        return np.concatenate((int_state, self.depth_maps.reshape(-1, self.n_ray * self.d)), axis=1)
+        return np.concatenate((int_state, self.depth_maps.reshape(-1, self.n_ray * self.d_total)), axis=1)
 
     # states : list of [pos, |vel|] -> [len(agents), 3]
     def internalStates(self):
@@ -282,20 +274,20 @@ class Environment():
         state_int = np.concatenate((relative_pos, v), axis=1)
         return state_int
 
-    def externalStates(self):
+    def externalStates(self, pos, vel, theta, ori):
         n_agent = len(self.agents)
         dw = np.array([(i*np.pi) / (self.n_ray-1) - np.pi/2 for i in range(self.n_ray)])
-        thetas = np.array([w + dw for w in self.w_t])
+        thetas = np.array([w + dw for w in theta])
         d = np.empty((n_agent, self.n_ray, 2))
         d[:,:,0] = np.cos(thetas)
         d[:,:,1] = np.sin(thetas)
 
         objs = np.concatenate((self.agents, self.obstacles))
         if len(self.obstacles) > 0:
-            obj_pos = np.concatenate((self.p_t, self.obs_pos), axis=0)
+            obj_pos = np.concatenate((pos, self.obs_pos), axis=0)
         else:
             obj_pos = self.p_t
-        p = np.array([[obj - agent for obj in obj_pos] for agent in self.p_t])
+        p = np.array([[obj - agent for obj in obj_pos] for agent in pos])
 
         state_ext=[]
         for i in range(n_agent):
@@ -321,14 +313,6 @@ class Environment():
                 depth_map.append(t_min)
             state_ext.append(depth_map)
         return np.array(state_ext)
-
-        # -- Cython --
-        # r = np.array([obj.r for obj in objs])
-        # state_ext = ext_state.external_states(d, p, r, n_agent, self.n_ray, objs.shape[0], self.t_max)
-        # state_ext = np.array(state_ext)
-        # print(state_ext.shape)
-
-        # return state_ext
 
     def distance(self, p1, p2):
         return math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)

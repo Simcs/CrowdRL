@@ -23,7 +23,7 @@ ppo_eps = 0.2 # clip ratio
 critic_discount = 0.5 # critic loss coefficient
 entropy_beta = 0.0 # 1e-3 # entropy loss coefficient
 
-ppo_steps = 1024
+ppo_steps = int(2048 / 4)
 mini_batch_size = 64
 ppo_epochs = 10
 
@@ -97,6 +97,9 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--env", default="basic", help="Environment name to use")
     parser.add_argument("-p", "--path", default="./checkpoints", help="Path to save model")
     parser.add_argument("-m", "--model", default=None, help="Model to load")
+    parser.add_argument("--pool", dest="pool", action="store_true", help="Use environment pool")
+    parser.add_argument("--no-pool", dest="pool", action="store_false", help="Do not use environment pool")
+    parser.set_defaults(pool=True)
     args = parser.parse_args()
 
     start = time.time()
@@ -123,7 +126,7 @@ if __name__ == "__main__":
     # state = env.reset()
 
     for i in range(iter):
-        if train_epoch % 10 == 0:
+        if args.pool and train_epoch % 10 == 0:
             env = random.choice(env_pool)
             print('current environment:', env.name)
 
@@ -182,8 +185,11 @@ if __name__ == "__main__":
 
         if train_epoch % test_epochs == 0:
             test_reward = 0
-            for env_ in env_pool:
-                test_reward += np.mean([test_env(env_, model) for _ in range(num_tests)])
+            if args.pool:
+                for env_ in env_pool:
+                    test_reward += np.mean([test_env(env_, model) for _ in range(num_tests)])
+            else:
+                test_reward = np.mean([test_env(test, model) for _ in range(num_tests)])
             print(f'Iteration {i}. avg reward: {test_reward}')
             print(f'elapsed time: {time.time() - start:.2f}')
 
