@@ -23,7 +23,7 @@ ppo_eps = 0.2 # clip ratio
 critic_discount = 0.5 # critic loss coefficient
 entropy_beta = 0.0 # 1e-3 # entropy loss coefficient
 
-ppo_steps = int(2048 / 4)
+ppo_steps = int(2048 / 2)
 mini_batch_size = 64
 ppo_epochs = 10
 

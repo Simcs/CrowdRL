@@ -39,7 +39,7 @@ class Environment():
         self.name = name
 
         self.eps = 2 # goal distance between agent and target
-        self.dt = 0.4 # timestep
+        self.dt = 0.2 # timestep
 
         self.v_min = 0.2 # desired minimum velocity
         self.v_max = 1.2 # desired maximum velocity
