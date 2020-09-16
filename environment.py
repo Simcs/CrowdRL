@@ -8,38 +8,29 @@ from scipy.spatial.distance import pdist, cdist
 
 # import ext_state
 
-def make_env(name):
-    if name == "basic":
-        return Environment(name, './envs/basic.xml')
-    elif name == "circle1":
-        return Environment(name, './envs/circle1.xml')
-    elif name == "circle2":
-        return Environment(name, './envs/circle2.xml')
-    elif name == "crossing1":
-        return Environment(name, './envs/crossing1.xml')
-    elif name == "crossing2":
-        return Environment(name, './envs/crossing2.xml')
-    elif name == "obstacles":
-        return Environment(name, './envs/obstacles.xml')
+env_list = ['basic', 'circle1', 'circle2', 'crossing1', 'crossing2', 'obstacles']
+
+def make_env(name, dt):
+    env_fname = './envs/' + name + '.xml'
+    if name in env_list:
+        return Environment(name, env_fname, dt)
     return None
 
-def make_env_pool():
+def make_env_pool(dt):
     env_pool = []
-    env_pool.append(make_env("circle1"))
-    env_pool.append(make_env("circle2"))
-    env_pool.append(make_env("crossing1"))
-    env_pool.append(make_env("crossing2"))
-    env_pool.append(make_env("obstacles"))
+    for env in env_list:
+        if env is not 'basic':
+            env_pool.append(make_env(env, dt))
     return env_pool
 
 class Environment():
 
-    def __init__(self, name, env_fname):
+    def __init__(self, name, env_fname, dt):
         self.tree = parse(env_fname)
         self.name = name
 
         self.eps = 2 # goal distance between agent and target
-        self.dt = 0.2 # timestep
+        self.dt = dt # timestep
 
         self.v_min = 0.2 # desired minimum velocity
         self.v_max = 1.2 # desired maximum velocity
@@ -63,7 +54,7 @@ class Environment():
         self.avg_times = np.zeros(10, dtype=np.float64)
 
         # self.reset()
-        self.num_observation = 3 + self.n_ray * self.d_total # number of states
+        self.num_observation = 3 + self.n_ray * (self.d_total + 2) # number of states
         self.num_action = 2 # number of actions
 
     def reset(self):
@@ -247,6 +238,7 @@ class Environment():
 
         # start = time.perf_counter()
         ext_state = self.externalStates(self.p_t, self.v_t, self.w_t, self.o_t)
+        v_x_maps, v_y_maps = self.velocityMaps(self.p_t, self.v_t, self.w_t, self.o_t)
         # elapsed = time.perf_counter() - start
         # self.avg_times[5] += (elapsed - self.avg_times[5]) / self.frame
 
@@ -262,7 +254,7 @@ class Environment():
             self.depth_maps[:,i,:] = self.depth_maps[:,i-1,:]
         self.depth_maps[:,self.d_future - 1,:] = ext_state
         
-        return np.concatenate((int_state, self.depth_maps.reshape(-1, self.n_ray * self.d_total)), axis=1)
+        return np.concatenate((int_state, self.depth_maps.reshape(-1, self.n_ray * self.d_total), v_x_maps, v_y_maps), axis=1)
 
     # states : list of [pos, |vel|] -> [len(agents), 3]
     def internalStates(self):
@@ -313,6 +305,65 @@ class Environment():
                 depth_map.append(t_min)
             state_ext.append(depth_map)
         return np.array(state_ext)
+    
+    def velocityMaps(self, pos, vel, theta, ori):
+        n_agent = len(self.agents)
+        dw = np.array([(i*np.pi) / (self.n_ray-1) - np.pi/2 for i in range(self.n_ray)])
+        thetas = np.array([w + dw for w in theta])
+        d = np.empty((n_agent, self.n_ray, 2))
+        d[:,:,0] = np.cos(thetas)
+        d[:,:,1] = np.sin(thetas)
+
+        objs = np.concatenate((self.agents, self.obstacles))
+        if len(self.obstacles) > 0:
+            obj_pos = np.concatenate((pos, self.obs_pos), axis=0)
+        else:
+            obj_pos = self.p_t
+        p = np.array([[obj - agent for obj in obj_pos] for agent in pos])
+
+        v_x_maps = []
+        v_y_maps = []
+        for i in range(n_agent):
+            v_x_map = []
+            v_y_map = []
+            for j in range(self.n_ray):
+                dij = d[i][j]
+                t_min = self.t_max
+                idx_min = -1    
+                for k in range(len(obj_pos)):
+                    if i == k:
+                        continue
+                    pik = p[i][k]
+                    tm = np.dot(pik, dij)
+                    lm_2 = np.dot(pik, pik) - tm ** 2
+                    dt = objs[k].r ** 2 - lm_2
+                    if dt > 0:
+                        dt = np.sqrt(dt)
+                        t0 = tm - dt
+                        t1 = tm + dt
+                        if t0 > 0 and t0 < t_min:
+                            t_min = t0
+                            idx_min = k
+                        elif t1 > 0 and t1 < t_min:
+                            t_min = t1
+                            idx_min = k
+                if idx_min == -1 : # not found
+                    v_x_map.append(0.)
+                    v_y_map.append(0.)
+                else:
+                    ori_inv = np.linalg.inv(ori[i])
+                    v1 = vel[i]
+                    if idx_min < self.n_agent:
+                        v2 = vel[idx_min]
+                    else:
+                        v2 = np.array([0, 0], dtype=np.float64)
+                    vel_diff = (v2 - v1).reshape(2, 1)
+                    relative_vel = (ori_inv @ vel_diff).reshape(2)
+                    v_x_map.append(relative_vel[0])
+                    v_y_map.append(relative_vel[1])
+            v_x_maps.append(v_x_map)
+            v_y_maps.append(v_y_map)
+        return np.array(v_x_maps), np.array(v_y_maps)
 
     def distance(self, p1, p2):
         return math.sqrt((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2)

@@ -222,6 +222,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
     parser.add_argument("-m", "--model", required=True, help="Model file to load")
+    parser.add_argument("--dt", required=True, help="Simulation time step")
     parser.add_argument("-e", "--env", default="basic", help="Environment name to use")
     parser.add_argument("--render", dest="render", action="store_true", help="Render environment")
     parser.add_argument("--no-render", dest="render", action="store_false", help="Do not render environment")
@@ -230,7 +231,8 @@ if __name__ == "__main__":
     parser.set_defaults(render=True, real=False)
     args = parser.parse_args()
     
-    env = make_env(args.env)
+    dt = float(args.dt)
+    env = make_env(args.env, dt)
     hidden_size = 256
 
     num_inputs = env.num_observation
