@@ -79,7 +79,8 @@ class Environment():
             y = float(obstacle.findtext('y'))
             r = float(obstacle.findtext('radius'))
             self.obstacles.append(Obstacle(x, y, r))
-            
+        
+        self.n_agent = len(self.agents)
         # for vectorization
         self.p_t = np.array([agent.pos for agent in self.agents]) # positions
         self.v_t = np.array([agent.vel for agent in self.agents]) # velocities
