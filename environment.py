@@ -54,7 +54,7 @@ class Environment():
         self.avg_times = np.zeros(10, dtype=np.float64)
 
         # self.reset()
-        self.num_observation = 3 + self.n_ray * (self.d_total + 2) # number of states
+        self.num_observation = 3 + self.n_ray * (self.d_total) # number of states
         self.num_action = 2 # number of actions
 
     def reset(self):
@@ -92,6 +92,7 @@ class Environment():
         self.p_t1 = self.v_t1 = self.w_t1 = self.o_t1 = None
 
         self.frame = 1
+        self.n_agent = len(self.agents)
 
         # use current state as memory
         ext_state = self.externalStates(self.p_t, self.v_t, self.w_t, self.o_t)
@@ -254,6 +255,7 @@ class Environment():
             self.depth_maps[:,i,:] = self.depth_maps[:,i-1,:]
         self.depth_maps[:,self.d_future - 1,:] = ext_state
         
+        return np.concatenate((int_state, self.depth_maps.reshape(-1, self.n_ray * self.d_total)), axis=1)
         return np.concatenate((int_state, self.depth_maps.reshape(-1, self.n_ray * self.d_total), v_x_maps, v_y_maps), axis=1)
 
     # states : list of [pos, |vel|] -> [len(agents), 3]
