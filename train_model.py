@@ -164,8 +164,6 @@ if __name__ == "__main__":
             state = next_state
             frame_idx += 1
 
-        print('dist:', dist.loc, dist.scale)
-        print('value:', value)
         # print('last state:\n', state)
         print('last reward:\n', reward)
         print('step elapsed:', time.perf_counter() - start)
