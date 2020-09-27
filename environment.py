@@ -54,7 +54,7 @@ class Environment():
         self.avg_times = np.zeros(10, dtype=np.float64)
 
         # self.reset()
-        self.num_observation = 3 + self.n_ray * (self.d_total) # number of states
+        self.num_observation = 3 + self.n_ray * (self.d_total + 2) # number of states
         self.num_action = 2 # number of actions
 
     def reset(self):
@@ -180,32 +180,47 @@ class Environment():
 
         # 2. collision reward
         collision_reward = np.zeros(n_agent, dtype=np.float64)
-        dist = pdist(self.p_t1)
-        indices = list(combinations(range(n_agent), 2))
-        for k in range(len(indices)):
-            i, j = indices[k]
-            a = self.agents[i]
-            b = self.agents[j]
-            d = dist[k] - (a.r + b.r)
-            if d < 0:
-                r = self.min_collision_reward
-            else:
-                r = max([self.min_collision_reward, -1 / (d ** 2 + 1e-8)])
-            collision_reward[i] += r
-            collision_reward[j] += r
-        
+        objs = np.concatenate((self.agents, self.obstacles))
         if len(self.obstacles) > 0:
-            dist = cdist(self.p_t1, self.obs_pos)
+            obj_pos = np.concatenate((self.p_t, self.obs_pos), axis=0)
+        else:
+            obj_pos = self.p_t
         for i in range(n_agent):
-            for j in range(len(self.obstacles)):
-                a = self.agents[i]
-                b = self.obstacles[j]
-                d = dist[i][j] - (a.r + b.r)
-                if d < 0:
-                    r = self.min_collision_reward
-                else:
-                    r = max([self.min_collision_reward, -1 / (d ** 2 + 1e-8)])    
-                collision_reward[i] += r
+            for j in range(len(obj_pos)):
+                if i == j:
+                    continue
+                d = np.linalg.norm(self.p_t[i] - obj_pos[j])
+                if d - (self.agents[i].r + objs[j].r) < 0:
+                    collision_reward[i] += self.min_collision_reward
+                    print('collision detected')
+                    break
+
+        # dist = pdist(self.p_t1)
+        # indices = list(combinations(range(n_agent), 2))
+        # for k in range(len(indices)):
+        #     i, j = indices[k]
+        #     a = self.agents[i]
+        #     b = self.agents[j]
+        #     d = dist[k] - (a.r + b.r)
+        #     if d < 0:
+        #         r = self.min_collision_reward
+        #     else:
+        #         r = max([self.min_collision_reward, -1 / (d ** 2 + 1e-8)])
+        #     collision_reward[i] += r
+        #     collision_reward[j] += r
+        
+        # if len(self.obstacles) > 0:
+        #     dist = cdist(self.p_t1, self.obs_pos)
+        # for i in range(n_agent):
+        #     for j in range(len(self.obstacles)):
+        #         a = self.agents[i]
+        #         b = self.obstacles[j]
+        #         d = dist[i][j] - (a.r + b.r)
+        #         if d < 0:
+        #             r = self.min_collision_reward
+        #         else:
+        #             r = max([self.min_collision_reward, -1 / (d ** 2 + 1e-8)])    
+        #         collision_reward[i] += r
 
         velocity_reward = np.zeros(n_agent, dtype=np.float64)
         # velocity = np.linalg.norm(new_vel, axis=1)
@@ -256,7 +271,7 @@ class Environment():
             self.depth_maps[:,i,:] = self.depth_maps[:,i-1,:]
         self.depth_maps[:,self.d_future - 1,:] = ext_state
         
-        return np.concatenate((int_state, self.depth_maps.reshape(-1, self.n_ray * self.d_total)), axis=1)
+        # return np.concatenate((int_state, self.depth_maps.reshape(-1, self.n_ray * self.d_total)), axis=1)
         return np.concatenate((int_state, self.depth_maps.reshape(-1, self.n_ray * self.d_total), v_x_maps, v_y_maps), axis=1)
 
     # states : list of [pos, |vel|] -> [len(agents), 3]
