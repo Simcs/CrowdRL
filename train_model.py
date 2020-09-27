@@ -23,7 +23,7 @@ ppo_eps = 0.2 # clip ratio
 critic_discount = 0.5 # critic loss coefficient
 entropy_beta = 0.0 # 1e-3 # entropy loss coefficient
 
-ppo_steps = 1024
+# ppo_steps = int(2048 / 4)
 mini_batch_size = 64
 ppo_epochs = 10
 
@@ -31,8 +31,6 @@ test_epochs = 10
 log_epochs = 100
 num_tests = 5
 target_reward = -10
-
-env_pool = make_env_pool()
 
 def normalize(x):
     x -= x.mean()
@@ -94,18 +92,25 @@ def ppo_update(frame_idx, states, actions, log_probs, returns, advantages, clip_
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
+    parser.add_argument("--dt", required=True, help="Simulation time step")
     parser.add_argument("-e", "--env", default="basic", help="Environment name to use")
     parser.add_argument("-p", "--path", default="./checkpoints", help="Path to save model")
     parser.add_argument("-m", "--model", default=None, help="Model to load")
-    args = parser.parse_args()
+    parser.add_argument("--pool", dest="pool", action="store_true", help="Use environment pool")
+    parser.add_argument("--no-pool", dest="pool", action="store_false", help="Do not use environment pool")
 
-    start = time.time()
+    parser.set_defaults(pool=True)
+    args = parser.parse_args()
 
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    env = make_env(args.env)
-    test = make_env(args.env)
+    dt = float(args.dt)
+    ppo_steps = int(2048 / (dt * 10))
+
+    env = make_env(args.env, dt)
+    env_pool = make_env_pool(dt)
+    test = make_env(args.env, dt)
     num_inputs = env.num_observation
     num_outputs = env.num_action
 
@@ -122,8 +127,9 @@ if __name__ == "__main__":
     iter = 10000
     # state = env.reset()
 
+    start = time.time()
     for i in range(iter):
-        if train_epoch % 10 == 0:
+        if args.pool and train_epoch % 10 == 0:
             env = random.choice(env_pool)
             print('current environment:', env.name)
 
@@ -182,12 +188,15 @@ if __name__ == "__main__":
 
         if train_epoch % test_epochs == 0:
             test_reward = 0
-            for env_ in env_pool:
-                test_reward += np.mean([test_env(env_, model) for _ in range(num_tests)])
+            if args.pool:
+                for env_ in env_pool:
+                    test_reward += np.mean([test_env(env_, model) for _ in range(num_tests)])
+            else:
+                test_reward = np.mean([test_env(test, model) for _ in range(num_tests)])
             print(f'Iteration {i}. avg reward: {test_reward}')
             print(f'elapsed time: {time.time() - start:.2f}')
 
-            name = f'iteration-{i},avg_reward-{test_reward:.3f}.dat'
+            name = f'itr-{i},dt-{dt},reward-{test_reward:.3f}.dat'
             fname = os.path.join(args.path, name)
 
             if best_reward == None or best_reward < test_reward:
