@@ -143,9 +143,8 @@ class Environment():
     
     def nextStates(self, pos, vel, theta, ori, force):
         # update positions, velocities
-        n_agent = len(self.agents)
         new_pos = pos + self.dt * vel
-        new_vel = vel + self.dt * (ori @ force).reshape(n_agent, 2)
+        new_vel = vel + self.dt * (ori @ force).reshape(self.n_agent, 2)
 
         # update orientations
         def rotationMatrix(c, s):
@@ -155,7 +154,7 @@ class Environment():
         cos = np.cos(new_theta)
         sin = np.sin(new_theta)
 
-        new_ori = np.array([rotationMatrix(cos[i], sin[i]) for i in range(n_agent)])
+        new_ori = np.array([rotationMatrix(cos[i], sin[i]) for i in range(self.n_agent)])
 
         return new_pos, new_vel, new_theta, new_ori
 
@@ -167,70 +166,13 @@ class Environment():
             self.agents[i].ori = self.o_t1[i]
 
     def computeRewards(self):
-        # 1. distance reward(continuous)
-        dist1 = np.linalg.norm(self.targets - self.p_t, axis=1)
-        dist2 = np.linalg.norm(self.targets - self.p_t1, axis=1)
-        distance_reward = dist1 - dist2
 
-        # discrete distance reward
-        # distance_reward = np.zeros(len(self.agents), dtype=np.float64)
-        # distance_reward[dist < self.eps] = 1
+        distance_reward = self.distanceRewards()
+        collision_reward, has_collision = self.collisionRewards()
+        velocity_reward = self.velocityRewards()
+        orientation_reward= self.orientationRewards()
 
-        n_agent = len(self.agents)
-
-        # 2. collision reward
-        collision_reward = np.zeros(n_agent, dtype=np.float64)
-        objs = np.concatenate((self.agents, self.obstacles))
-        if len(self.obstacles) > 0:
-            obj_pos = np.concatenate((self.p_t, self.obs_pos), axis=0)
-        else:
-            obj_pos = self.p_t
-        for i in range(n_agent):
-            for j in range(len(obj_pos)):
-                if i == j:
-                    continue
-                d = np.linalg.norm(self.p_t[i] - obj_pos[j])
-                if d - (self.agents[i].r + objs[j].r) < 0:
-                    collision_reward[i] += self.min_collision_reward
-                    break
-
-        # dist = pdist(self.p_t1)
-        # indices = list(combinations(range(n_agent), 2))
-        # for k in range(len(indices)):
-        #     i, j = indices[k]
-        #     a = self.agents[i]
-        #     b = self.agents[j]
-        #     d = dist[k] - (a.r + b.r)
-        #     if d < 0:
-        #         r = self.min_collision_reward
-        #     else:
-        #         r = max([self.min_collision_reward, -1 / (d ** 2 + 1e-8)])
-        #     collision_reward[i] += r
-        #     collision_reward[j] += r
-        
-        # if len(self.obstacles) > 0:
-        #     dist = cdist(self.p_t1, self.obs_pos)
-        # for i in range(n_agent):
-        #     for j in range(len(self.obstacles)):
-        #         a = self.agents[i]
-        #         b = self.obstacles[j]
-        #         d = dist[i][j] - (a.r + b.r)
-        #         if d < 0:
-        #             r = self.min_collision_reward
-        #         else:
-        #             r = max([self.min_collision_reward, -1 / (d ** 2 + 1e-8)])    
-        #         collision_reward[i] += r
-
-        velocity_reward = np.zeros(n_agent, dtype=np.float64)
-        # velocity = np.linalg.norm(new_vel, axis=1)
-        for i in range(n_agent):
-            v = np.sqrt(np.dot(self.agents[i].vel, self.agents[i].vel))
-            velocity_reward[i] = -self.flood(v, self.v_min, self.v_max)
-
-        orientation_reward = np.zeros(n_agent, dtype=np.float64)
-        ori_diff = np.abs(self.w_t1 - self.w_t)
-        for i in range(n_agent):
-            orientation_reward[i] = -self.flood(ori_diff[i], self.w_min, self.w_max)
+        distance_reward *= np.logical_not(has_collision)
         
         # done_reward = np.full(n, -1, dtype=np.float64)
         # done_reward[self.dones] = 0
@@ -245,6 +187,54 @@ class Environment():
             print()
         
         return self.w1 * distance_reward + self.w2 * collision_reward + self.w3 * velocity_reward + self.w4 * orientation_reward
+
+    def distanceRewards(self):
+        # 1. distance reward(continuous)
+        dist1 = np.linalg.norm(self.targets - self.p_t, axis=1)
+        dist2 = np.linalg.norm(self.targets - self.p_t1, axis=1)
+        distance_reward = dist1 - dist2
+
+        # discrete distance reward
+        # distance_reward = np.zeros(len(self.agents), dtype=np.float64)
+        # distance_reward[dist < self.eps] = 1
+        return distance_reward
+    
+    def collisionRewards(self):
+        collision_reward = np.zeros(self.n_agent, dtype=np.float64)
+        has_collision = np.zeros(self.n_agent)
+        objs = np.concatenate((self.agents, self.obstacles))
+        if len(self.obstacles) > 0:
+            obj_pos = np.concatenate((self.p_t, self.obs_pos), axis=0)
+        else:
+            obj_pos = self.p_t
+        for i in range(self.n_agent):
+            for j in range(len(obj_pos)):
+                if i == j:
+                    continue
+                d = np.linalg.norm(self.p_t[i] - obj_pos[j])
+                if d - (self.agents[i].r + objs[j].r) < 0:
+                    collision_reward[i] += self.min_collision_reward
+                    has_collision[i] = True
+                    break
+        
+        return collision_reward, has_collision
+    
+    def velocityRewards(self):
+        velocity_reward = np.zeros(self.n_agent, dtype=np.float64)
+        # velocity = np.linalg.norm(new_vel, axis=1)
+        for i in range(self.n_agent):
+            v = np.sqrt(np.dot(self.agents[i].vel, self.agents[i].vel))
+            velocity_reward[i] = -self.flood(v, self.v_min, self.v_max)
+
+        return velocity_reward
+
+    def orientationRewards(self):
+        orientation_reward = np.zeros(self.n_agent, dtype=np.float64)
+        ori_diff = np.abs(self.w_t1 - self.w_t)
+        for i in range(self.n_agent):
+            orientation_reward[i] = -self.flood(ori_diff[i], self.w_min, self.w_max)
+
+        return orientation_reward
 
     def computeStates(self):
         # start = time.perf_counter()
@@ -270,7 +260,6 @@ class Environment():
             self.depth_maps[:,i,:] = self.depth_maps[:,i-1,:]
         self.depth_maps[:,self.d_future - 1,:] = ext_state
         
-        # return np.concatenate((int_state, self.depth_maps.reshape(-1, self.n_ray * self.d_total)), axis=1)
         return np.concatenate((int_state, self.depth_maps.reshape(-1, self.n_ray * self.d_total), v_x_maps, v_y_maps), axis=1)
 
     # states : list of [pos, |vel|] -> [len(agents), 3]
@@ -284,10 +273,9 @@ class Environment():
         return state_int
 
     def externalStates(self, pos, vel, theta, ori):
-        n_agent = len(self.agents)
         dw = np.array([(i*np.pi) / (self.n_ray-1) - np.pi/2 for i in range(self.n_ray)])
         thetas = np.array([w + dw for w in theta])
-        d = np.empty((n_agent, self.n_ray, 2))
+        d = np.empty((self.n_agent, self.n_ray, 2))
         d[:,:,0] = np.cos(thetas)
         d[:,:,1] = np.sin(thetas)
 
@@ -299,7 +287,7 @@ class Environment():
         p = np.array([[obj - agent for obj in obj_pos] for agent in pos])
 
         state_ext=[]
-        for i in range(n_agent):
+        for i in range(self.n_agent):
             depth_map = []
             for j in range(self.n_ray):
                 dij = d[i][j]
@@ -324,10 +312,9 @@ class Environment():
         return np.array(state_ext)
     
     def velocityMaps(self, pos, vel, theta, ori):
-        n_agent = len(self.agents)
         dw = np.array([(i*np.pi) / (self.n_ray-1) - np.pi/2 for i in range(self.n_ray)])
         thetas = np.array([w + dw for w in theta])
-        d = np.empty((n_agent, self.n_ray, 2))
+        d = np.empty((self.n_agent, self.n_ray, 2))
         d[:,:,0] = np.cos(thetas)
         d[:,:,1] = np.sin(thetas)
 
@@ -340,7 +327,7 @@ class Environment():
 
         v_x_maps = []
         v_y_maps = []
-        for i in range(n_agent):
+        for i in range(self.n_agent):
             v_x_map = []
             v_y_map = []
             for j in range(self.n_ray):
