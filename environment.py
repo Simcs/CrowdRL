@@ -192,7 +192,6 @@ class Environment():
                 d = np.linalg.norm(self.p_t[i] - obj_pos[j])
                 if d - (self.agents[i].r + objs[j].r) < 0:
                     collision_reward[i] += self.min_collision_reward
-                    print('collision detected')
                     break
 
         # dist = pdist(self.p_t1)
