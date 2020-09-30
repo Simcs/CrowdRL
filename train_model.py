@@ -29,7 +29,7 @@ ppo_epochs = 10
 
 test_epochs = 10
 log_epochs = 100
-num_tests = 5
+num_tests = 2
 target_reward = -10
 
 def normalize(x):
